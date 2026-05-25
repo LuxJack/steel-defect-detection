@@ -1,0 +1,55 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 环境与本地配置
+.env
+.venv
+venv/
+venv.bak/
+
+# 数据库文件 (让容器运行时自己生成或者挂载到外部卷)
+database/*.db
+
+# 临时生成文件或上传文件
+backend/uploads/*
+backend/results/*
+!backend/uploads/.gitkeep
+!backend/results/.gitkeep
+
+# IDE或编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 源码与不需要的文件
+model/train/
+ultralytics-main/
+frontend/src/
+frontend/package.json
+frontend/vite.config.js
+frontend/index-cdn.html

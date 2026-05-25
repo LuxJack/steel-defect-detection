@@ -1,0 +1,32 @@
+# Web 框架和基础组件
+fastapi==0.115.0 # 建议使用更新但非最新的稳定版
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-multipart==0.0.12
+websockets==15.0.1
+
+# 数据库相关
+sqlalchemy==2.0.35
+
+# 认证和加密相关
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0
+pyjwt==2.11.0
+bcrypt==4.2.0
+
+# 配置读取
+python-dotenv==1.0.1
+
+# YOLOv8 依赖与计算机视觉
+ultralytics==8.4.53
+opencv-python==4.13.0.92
+numpy==2.0.2
+pillow==11.3.0
+imageio-ffmpeg==0.6.0
+
+# 修复 PyTorch 安全拦截问题 (对应 Python 3.10)
+# 确保使用 2.5 系列版本，避免 2.6 的 `weights_only=True` 安全改动。
+# 由于 Ultralytics 可能会与最新的 torch 加载策略有冲突，我们依然将其在 docker 中锁定为安全的 2.5 系列。
+torch==2.5.1
+torchvision==0.20.1

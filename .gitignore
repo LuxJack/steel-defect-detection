@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# 虚拟环境
+venv/
+backend/venv/
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 上传和结果文件（运行期生成）
+backend/uploads/
+backend/results/
+
+# 数据库（有 reset_db.py 可重建）
+database/steel_defect.db
+steel_defect.db
+
+# 训练数据
+model/train/
+
+# 模型权重（yolov8n.pt 可从官方下载）
+model/weights/yolov8n.pt
+model/weights/best1.pt
+model/weights/best2.pt
+
+# YOLO 源码压缩包 / 解压目录
+ultralytics-main1.zip
+ultralytics-8.3.55/
+
+# 测试资源
+test/
+
+# 前端
+node_modules/
+frontend/dist/
+frontend/static/assets/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+.env.local

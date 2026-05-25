@@ -1,0 +1,1749 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> 钢材缺陷智能识别平台</title>
+    <link rel="icon" href="/static/assets/favicon.png" type="image/png">
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <!-- 新增：XLSX 表格导出库 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- 接入新布局样式 -->
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        [v-cloak] { display: none !important; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        
+        /* 全局背景色调优 (参考图2: 偏浓郁的米黄) */
+        body.main-app-body {
+            background-color: var(--bg-primary) !important; /* 同步 style.css 的主背景 */
+            font-family: 'Inter', 'Microsoft YaHei', sans-serif;
+            color: var(--text-primary);
+        }
+        
+        /* 顶栏改为白色背景 (参考图2) */
+        .global-header {
+            background: white !important;
+            border-bottom: 2px solid #f5e6da;
+            color: #333 !important;
+            height: 60px;
+            padding: 0 40px;
+        }
+        .global-header .logo-text {
+            color: #d35400 !important; 
+            font-size: 18px;
+            font-weight: 800;
+        }
+
+        /* 侧边栏样式微调 */
+        .app-sidebar {
+            background: white !important;
+            border-right: 2px solid #f5e6da;
+            padding: 20px 15px;
+        }
+        .menu-item {
+            margin-bottom: 8px;
+            border-radius: 8px !important;
+            border: 1px solid #f5e6da !important;
+            background: white;
+            color: #5d4037 !important;
+            transition: all 0.2s;
+        }
+        .menu-item:hover {
+            background: #fff9f0 !important;
+            border-color: #e67e22 !important;
+        }
+        .menu-item.active {
+            background: #e67e22 !important;
+            color: white !important;
+            box-shadow: 0 4px 10px rgba(230, 126, 34, 0.2);
+        }
+
+        /* 统一识别界面比例 */
+        .main-detection-card {
+            background: white !important;
+            border-radius: 12px;
+            border: 1px solid #f5e6da;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .canvas-container {
+            padding: 20px;
+            gap: 20px;
+            background: #fffdfb;
+        }
+        .preview-column {
+            background: #fdfaf7 !important;
+            border: 3px dashed #eec996 !important;
+            border-radius: 10px;
+            position: relative;
+            padding-top: 45px !important;
+            padding-bottom: 15px !important;
+            box-sizing: border-box;
+        }
+
+        /* 历史记录条目悬浮效果 */
+        .record-item {
+            background: white;
+            border: 1px solid #f5e6da !important;
+            transition: all 0.2s ease;
+        }
+        .record-item:hover {
+            border-color: #e67e22 !important;
+            box-shadow: 0 5px 15px rgba(211, 84, 0, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .result-video-player { width: 100%; height: auto; border-radius: 8px; }
+
+        /* 顶栏首页按钮 */
+        .home-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 13px;
+            color: #e67e22;
+            cursor: pointer;
+            padding: 5px 12px;
+            border-radius: 8px;
+            transition: background 0.2s;
+            user-select: none;
+            font-weight: 600;
+        }
+        .home-btn:hover { background: #fff3e0; }
+
+        /* 头像下拉菜单 */
+        .user-dropdown {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .user-dropdown-trigger {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 20px;
+            transition: background 0.2s;
+            user-select: none;
+        }
+        .user-dropdown-trigger:hover { background: #fff3e0; }
+        .user-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            padding-top: 8px;          /* 视觉间距，同时填补 hover 缝隙 */
+            background: transparent;   /* 外层透明，让 padding 区域可 hover */
+            z-index: 9999;
+            display: none;
+        }
+        .user-dropdown:hover .user-dropdown-menu { display: block; }
+        /* 真正的菜单卡片 */
+        .user-dropdown-menu-inner {
+            background: white;
+            border: 1px solid #f5e6da;
+            border-radius: 10px;
+            box-shadow: 0 8px 24px rgba(211, 84, 0, 0.12);
+            min-width: 140px;
+            overflow: hidden;
+        }
+        .user-dropdown-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 18px;
+            font-size: 13px;
+            color: #5d4037;
+            cursor: pointer;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+        .user-dropdown-item:hover { background: #fff9f0; color: #e67e22; }
+        .user-dropdown-item.danger:hover { background: #fff0f0; color: #e74c3c; }
+        .user-dropdown-divider { height: 1px; background: #f5e6da; margin: 2px 0; }
+
+        /* 个人信息弹窗 */
+        .profile-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .profile-modal {
+            background: white;
+            border-radius: 16px;
+            padding: 32px 36px;
+            width: 380px;
+            max-width: 95vw;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+            position: relative;
+        }
+        .profile-modal-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #5d4037;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .profile-modal-close {
+            position: absolute;
+            top: 18px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #999;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .profile-modal-close:hover { color: #e74c3c; }
+        .profile-avatar-wrap {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 22px;
+        }
+        .profile-avatar-inner {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            cursor: pointer;
+        }
+        .profile-avatar-inner img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid #f5e6da;
+            object-fit: cover;
+        }
+        .profile-avatar-cam {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 24px;
+            height: 24px;
+            background: #e67e22;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            border: 2px solid white;
+        }
+        .profile-input-group {
+            margin-bottom: 16px;
+            position: relative;
+        }
+        .profile-input-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #7f8c8d;
+            margin-bottom: 6px;
+            padding-left: 2px;
+        }
+        .profile-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .profile-input-wrapper i {
+            position: absolute;
+            left: 12px;
+            color: #bdc3c7;
+            font-size: 16px;
+            transition: color 0.2s;
+        }
+        .profile-input-wrapper input {
+            width: 100%;
+            padding: 10px 12px 10px 38px;
+            border: 1.5px solid #edf2f7;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #2d3436;
+            outline: none;
+            box-sizing: border-box;
+            transition: all 0.2s ease;
+            background: #f8fafc;
+        }
+        .profile-input-wrapper input:focus { 
+            border-color: #e67e22; 
+            background: white;
+            box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.1);
+        }
+        .profile-input-wrapper input:focus + i {
+            color: #e67e22;
+        }
+        .profile-save-btn {
+            width: 100%;
+            padding: 11px;
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.2s;
+        }
+        .profile-save-btn:hover { background: #d35400; }
+        .defect-record-item { padding: 12px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+        .defect-record-item:hover { background: #f8fafc; }
+        .spin { animation: spin 1s linear infinite; display: inline-block; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* 类别统计卡片列表样式 (复刻用户图) */
+        .category-stats-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 5px;
+        }
+        .category-stat-item {
+            background: #f7f7f7;
+            border-radius: 8px;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid #f5e6da;
+        }
+        .cat-name {
+            font-size: 13px;
+            color: #5d4037;
+            font-weight: 600;
+        }
+        .cat-count {
+            color: #d32f2f;
+            font-weight: 800;
+            font-size: 15px;
+        }
+
+        /* 修复工业表格在白底下的文字可见性 */
+        .industrial-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            table-layout: fixed; /* 固定布局防止溢出 */
+        }
+        .industrial-table th {
+            background: #fdf6f0;
+            color: #5d4037 !important;
+            font-weight: 700;
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 2px solid #f5e6da;
+            font-size: 13px;
+        }
+        .industrial-table td {
+            padding: 10px 15px;
+            border-bottom: 1px solid #f5e6da;
+            color: #333 !important;
+            vertical-align: middle;
+            font-size: 12px;
+            word-break: break-all; /* 允许折行 */
+        }
+        
+        /* 针对不同列的宽度优化 */
+        .col-index { width: 50px; }
+        .col-path { width: 30%; }
+        .col-type { width: 15%; }
+        .col-conf { width: 10%; }
+        .col-coord { width: 35%; }
+
+        /* 统一图片显示框比例 */
+        .preview-column {
+            aspect-ratio: 4 / 3;
+            background: #fcfcfc !important;
+            border: 3px dashed #eec996 !important;
+            border-radius: 10px;
+            box-shadow: none !important;
+            padding-top: 45px !important;
+            padding-bottom: 15px !important;
+            box-sizing: border-box;
+            overflow: visible !important;
+        }
+
+        /* ===== 系统简介 / 欢迎界面 ===== */
+        .welcome-intro-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 520px;
+            position: relative;
+            overflow: hidden;
+            background: #fffdfb;
+            border-radius: 12px;
+            border: 1px solid #f5e6da;
+        }
+        .welcome-ellipse {
+            position: absolute;
+            width: 58%;
+            height: 78%;
+            border: 2px solid rgba(230, 126, 34, 0.22);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: ellipsePulse 4s ease-in-out infinite;
+        }
+        .welcome-ellipse-outer {
+            position: absolute;
+            width: 72%;
+            height: 90%;
+            border: 1px dashed rgba(230, 126, 34, 0.1);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: ellipsePulse 4s ease-in-out infinite reverse;
+        }
+        @keyframes ellipsePulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.03); }
+        }
+        .welcome-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 10px;
+            padding: 40px 60px;
+            animation: welcomeFadeIn 0.7s ease-out;
+        }
+        @keyframes welcomeFadeIn {
+            from { opacity: 0; transform: translateY(28px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .welcome-logo-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, #e67e22, #d35400);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 34px;
+            box-shadow: 0 8px 30px rgba(230, 126, 34, 0.45);
+            margin-bottom: 4px;
+        }
+        .welcome-brand {
+            font-size: 30px;
+            font-weight: 900;
+            color: #d35400;
+            letter-spacing: 10px;
+            text-transform: uppercase;
+        }
+        .welcome-title {
+            font-size: 42px;
+            font-weight: 900;
+            color: #3d1f00;
+            margin: 0;
+            line-height: 1.2;
+            letter-spacing: 2px;
+        }
+        .welcome-subtitle {
+            font-size: 15px;
+            color: #8d6e63;
+            margin: 0;
+            letter-spacing: 1px;
+        }
+        .welcome-slogan {
+            font-size: 13px;
+            color: #bcaaa4;
+            margin: 0;
+            letter-spacing: 6px;
+        }
+        .welcome-badges {
+            display: flex;
+            gap: 14px;
+            margin-top: 10px;
+        }
+        .welcome-badge {
+            background: white;
+            border: 1px solid #f5e6da;
+            color: #d35400;
+            padding: 8px 22px;
+            border-radius: 50px;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 4px 12px rgba(230, 126, 34, 0.12);
+        }
+        .welcome-stats {
+            margin-top: 22px;
+            display: flex;
+            gap: 30px;
+            color: #b0856a;
+            font-size: 12px;
+            border-top: 1px dashed #f5e6da;
+            padding-top: 20px;
+            width: 100%;
+        }
+        .welcome-stat-item {
+            text-align: center;
+            flex: 1;
+        }
+        .welcome-stat-item .stat-num {
+            font-size: 22px;
+            font-weight: 900;
+            color: #e67e22;
+            display: block;
+        }
+        .welcome-float-tag {
+            position: absolute;
+            background: white;
+            border: 1px solid #f5e6da;
+            color: #5d4037;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+            pointer-events: none;
+        }
+        .welcome-float-tag-1 { top: 22%; left: 8%; animation: tagFloat1 3s ease-in-out infinite; }
+        .welcome-float-tag-2 { bottom: 22%; right: 8%; animation: tagFloat2 3s ease-in-out infinite; }
+        @keyframes tagFloat1 {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        @keyframes tagFloat2 {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(10px); }
+        }
+
+        /* 选中检测框高亮（可选）：呼吸灯 + 略微加粗 */
+        .selected-box > rect:first-of-type {
+            stroke-width: 4 !important;
+            filter: drop-shadow(0 0 6px rgba(255, 120, 40, 0.85));
+            animation: selectedBoxPulse 1.2s ease-in-out infinite;
+        }
+        @keyframes selectedBoxPulse {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 1; }
+        }
+
+        /* ===== 历史记录—固定滚动容器 ===== */
+        .history-scroll-inner {
+            height: calc(100vh - 280px);
+            max-height: 620px;
+            min-height: 300px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px 24px;
+            background: #fffdfb;
+        }
+        /* 美化滚动条：细长圆角、主题橙色 */
+        .history-scroll-inner::-webkit-scrollbar { width: 5px; }
+        .history-scroll-inner::-webkit-scrollbar-track { background: transparent; }
+        .history-scroll-inner::-webkit-scrollbar-thumb {
+            background: #f0c08a;
+            border-radius: 10px;
+        }
+        .history-scroll-inner::-webkit-scrollbar-thumb:hover { background: #e67e22; }
+
+        /* 历史记录卡片 */
+        .history-record-card {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            margin-bottom: 10px;
+            background: white;
+            border: 1px solid #f5e6da;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.22s ease;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+        }
+        .history-record-card:last-child { margin-bottom: 0; }
+        .history-record-card:hover {
+            border-color: #e67e22;
+            box-shadow: 0 5px 16px rgba(230, 126, 34, 0.13);
+            transform: translateY(-2px);
+            background: #fffcf8;
+        }
+
+        /* 分页控件 */
+        .history-pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px 24px;
+            border-top: 1px solid #fdf6ee;
+            background: white;
+            flex-shrink: 0;
+        }
+        .page-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            border: 1px solid #f5e6da;
+            background: white;
+            color: #5d4037;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.18s;
+            flex-shrink: 0;
+        }
+        .page-btn:hover:not(:disabled) {
+            border-color: #e67e22;
+            color: #e67e22;
+            background: #fff9f0;
+        }
+        .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .page-btn.active {
+            border-color: #e67e22;
+            box-shadow: 0 3px 8px rgba(230,126,34,0.25);
+        }
+
+        /* 选中态样式 */
+        .history-record-card.selected {
+            background: #fff4e6 !important;
+            border-color: #e67e22 !important;
+            box-shadow: 0 0 0 2px #e67e22;
+        }
+
+        /* Vue 过渡动画 */
+        .slide-up-enter-active, .slide-up-leave-active { transition: all 0.3s ease; }
+        .slide-up-enter-from { transform: translateY(20px); opacity: 0; }
+        .slide-up-leave-to { transform: translateY(-20px); opacity: 0; }
+
+        .toast-slide-enter-active, .toast-slide-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .toast-slide-enter-from { transform: translate(-50%, 50px); opacity: 0; }
+        .toast-slide-leave-to { transform: translate(-50%, 20px); opacity: 0; }
+
+        /* 移动端适配 */
+        @media (max-width: 768px) {
+            .history-actions-desktop { display: none !important; }
+            .history-actions-mobile { display: flex !important; }
+            .history-view-container { padding: 10px !important; }
+            .history-record-card { padding: 10px; }
+        }
+        .history-actions-mobile { display: none; align-items: center; }
+    </style>
+</head>
+<body :class="isLoggedIn ? 'main-app-body' : 'auth-page-body'">
+    <div id="app" v-cloak>
+        
+        <!-- 1. 登录与注册页面  -->
+        <transition name="fade">
+            <div v-if="!isLoggedIn" class="auth-container">
+                <div class="auth-logo-box">
+                    <i class="ph ph-robot"></i>
+                </div>
+                <h1 class="auth-title">钢材缺陷智能识别平台</h1>
+                <p class="auth-subtitle">INTELLIGENT IDENTIFICATION PLATFORM</p>
+                
+                <div class="auth-tabs">
+                    <button class="auth-tab-btn" :class="{active: authMode === 'login'}" @click="authMode = 'login'">登录</button>
+                    <button class="auth-tab-btn" :class="{active: authMode === 'register'}" @click="authMode = 'register'">注册新账号</button>
+                </div>
+
+                <form @submit.prevent="handleAuth">
+                    <div class="auth-input-group">
+                        <label>Access ID / 用户名</label>
+                        <input type="text" v-model="authForm.username" placeholder="请输入您的账号" required>
+                    </div>
+                    <div class="auth-input-group">
+                        <label>Password / 密码</label>
+                        <input type="password" v-model="authForm.password" placeholder="请输入您的密码" required>
+                    </div>
+                    <div v-if="authMode === 'register'" class="auth-input-group">
+                        <label>Confirm Password / 确认密码</label>
+                        <input type="password" v-model="authForm.confirmPassword" placeholder="再次输入密码" required>
+                    </div>
+                    
+                    <button type="submit" class="auth-submit-btn">
+                        {{ authMode === 'login' ? '立即登录' : '立即注册' }}
+                    </button>
+                </form>
+            </div>
+        </transition>
+
+        <!-- 2. 主应用界面 (三栏式布局) -->
+        <template v-if="isLoggedIn">
+            <!-- 全局顶栏 -->
+            <header class="global-header">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 32px; height: 32px; background: #e67e22; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 2px 8px rgba(230, 126, 34, 0.3);">
+                        <i class="ph ph-robot" style="font-size: 18px;"></i>
+                    </div>
+                    <div class="logo-text">基于YOLO的钢材表面缺陷识别系统</div>
+                </div>
+                <div style="display: flex; gap: 16px; align-items: center;">
+                    <div class="home-btn" @click="resetToWelcome">
+                        <i class="ph ph-house"></i> 首页
+                    </div>
+                    <div class="user-dropdown">
+                        <div class="user-dropdown-trigger">
+                            <span style="font-size: 13px; font-weight: 600; color: #5d4037;">{{ authForm.username }}</span>
+                            <img :src="avatarUrl" style="width: 30px; height: 30px; border-radius: 50%; border: 2px solid #f5e6da; object-fit: cover;">
+                            <i class="ph ph-caret-down" style="font-size: 11px; color: #aaa;"></i>
+                        </div>
+                        <div class="user-dropdown-menu">
+                            <div class="user-dropdown-menu-inner">
+                                <div class="user-dropdown-item" @click="openProfileModal">
+                                    <i class="ph ph-user-circle"></i> 个人信息
+                                </div>
+                                <div class="user-dropdown-divider"></div>
+                                <div class="user-dropdown-item danger" @click="logout">
+                                    <i class="ph ph-sign-out"></i> 退出登录
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="app-container">
+                <!-- 1. 左侧功能选择 (第一栏) -->
+                <aside class="app-sidebar">
+                    <div class="sidebar-header" style="justify-content: flex-start; gap: 4px;">
+                        <i class="ph ph-gear"></i>
+                        <span>功能选择</span>
+                    </div>
+                    
+                    <div class="sidebar-menu">
+                        <!-- 核心：添加点击时自动切换回 detection 视图的逻辑 -->
+                        <div class="menu-item" :class="{active: activeMenuKey === 'image'}" @click="triggerFileInput('image')">
+                            <i class="ph ph-image"></i> <span>图片选择</span>
+                        </div>
+                        <div class="menu-item" :class="{active: activeMenuKey === 'video'}" @click="triggerFileInput('video')">
+                            <i class="ph ph-video-camera"></i> <span>视频选择</span>
+                        </div>
+                        <div class="menu-item" :class="{active: activeMenuKey === 'folder'}" @click="triggerFolderInput()">
+                            <i class="ph ph-folder-open"></i> <span>文件夹选择</span>
+                        </div>
+                        <div class="menu-item" :class="{active: activeMenuKey === 'camera'}" @click="toggleCamera()">
+                            <i class="ph ph-camera"></i> <span>{{ isCameraOn ? '关闭摄像头' : '摄像头识别' }}</span>
+                        </div>
+                        <div class="menu-item" :class="{active: activeMenuKey === 'model'}" @click="triggerModelInput()">
+                            <i class="ph ph-cpu"></i> <span>模型选择</span>
+                        </div>
+                        <div class="menu-item" :class="{active: activeMenuKey === 'history'}" @click="switchView('history')">
+                            <i class="ph ph-clock-counter-clockwise"></i> <span>识别历史</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: auto; padding: 20px;">
+                        <!-- 隐藏的文件上传组件，由逻辑控制触发 -->
+                        <input type="file" ref="fileInput" @change="handleFileSelect" style="display: none;" 
+                               :accept="detectSource === 'image' ? 'image/*' : (detectSource === 'video' ? 'video/*' : '*')">
+                        <!-- 文件夹选择器（webkitdirectory）-->
+                        <input type="file" ref="folderInput" @change="handleFolderSelect" style="display: none;"
+                               webkitdirectory multiple accept="image/*">
+                        <!-- 模型文件选择器 -->
+                        <input type="file" ref="modelFileInput" @change="handleModelFileSelect" style="display: none;"
+                               accept=".pt,.onnx">
+                    </div>
+                </aside>
+
+                <!-- 2. 中间检测显示区 (第二栏) -->
+                <main class="app-main">
+                    <!-- ================= 视图 0: 系统简介 (初始欢迎界面) ================= -->
+                    <template v-if="showWelcome">
+                        <div class="welcome-intro-screen">
+                            <div class="welcome-ellipse"></div>
+                            <div class="welcome-ellipse-outer"></div>
+                            <!-- 悬浮检测标签装饰 -->
+                            <div class="welcome-float-tag welcome-float-tag-1">
+                                <span style="color: #e67e22; font-weight: 800;">划痕</span> 95%
+                            </div>
+                            <div class="welcome-float-tag welcome-float-tag-2">
+                                <span style="color: #27ae60; font-weight: 800;">裂纹</span> 91%
+                            </div>
+                            <div class="welcome-content">
+                                <div class="welcome-logo-icon">
+                                    <i class="ph ph-eye" style="font-size: 34px;"></i>
+                                </div>
+                                <div class="welcome-brand">YOLO</div>
+                                <h1 class="welcome-title">实时目标检测</h1>
+                                <p class="welcome-subtitle">钢材表面缺陷实时监测系统</p>
+                                <p class="welcome-slogan">快速·精准·高效</p>
+                                <div class="welcome-badges">
+                                    <span class="welcome-badge"><i class="ph ph-lightning"></i> 毫秒级推理</span>
+                                    <span class="welcome-badge"><i class="ph ph-target"></i> 高精度检测</span>
+                                </div>
+                                <div class="welcome-stats">
+                                    <div class="welcome-stat-item">
+                                        <span class="stat-num">6</span>
+                                        <span>缺陷类别</span>
+                                    </div>
+                                    <div class="welcome-stat-item">
+                                        <span class="stat-num">YOLOv8</span>
+                                        <span>检测引擎</span>
+                                    </div>
+                                    <div class="welcome-stat-item">
+                                        <span class="stat-num">实时</span>
+                                        <span>推理速度</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- ================= 视图 A: 识别主界面 ================= -->
+                    <template v-else-if="currentView === 'detection'">
+                        <!-- 顶栏：参数调节（置信度/交并比）独立卡片 -->
+                        <div class="main-header-toolbar" style="padding: 6px 16px; background: #fffdfb; border: 1px solid #f5e6da; border-radius: 12px; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(230,126,34,0.05);">
+                            <div class="toolbar-item" style="color: #d35400; font-weight: 700;">
+                                <label>置信度:</label>
+                                <input type="range" v-model="confThreshold" min="0" max="1" step="0.05" style="width: 130px; accent-color: #e67e22;">
+                                <span style="background: #fff9f0; padding: 2px 8px; border-radius: 4px; border: 1px solid #f5e6da;">{{ confThreshold }}</span>
+                            </div>
+                            <div class="toolbar-item" style="color: #d35400; font-weight: 700; margin-left:15px;">
+                                <label>交并比:</label>
+                                <input type="range" v-model="iouThreshold" min="0" max="1" step="0.05" style="width: 130px; accent-color: #e67e22;">
+                                <span style="background: #fff9f0; padding: 2px 8px; border-radius: 4px; border: 1px solid #f5e6da;">{{ iouThreshold }}</span>
+                            </div>
+                            <div class="toolbar-item" style="margin-left: auto; color: #7f8c8d; font-size: 13px;">
+
+                                <!-- 摄像头模式：显示 FPS -->
+                                <template v-if="isCameraDetecting">
+                                    <span style="color:#27ae60; font-weight:800; margin-right:12px; background:#f0fff4; padding:3px 10px; border-radius:6px; border:1px solid #b2dfdb;">
+                                        <i class="ph ph-camera"></i> {{ cameraFps }} FPS
+                                    </span>
+                                </template>
+                                当前模型: <span style="font-weight: 800; color: #2c3e50; margin-right: 12px;">{{ currentModelDisplay }}</span>
+                                耗时: <span style="font-weight: 800; color: #2ecc71;">{{ detectionStats ? (detectionStats.time || '-') : '-' }} ms</span>
+                            </div>
+                        </div>
+
+                        <!-- 下部分：主检测区域和按钮 (实线大卡片) -->
+                        <div class="main-detection-card" style="padding: 12px; display: flex; flex-direction: column; gap: 12px; border: 1px solid #eec996; border-radius: 12px; background: white; box-shadow: 0 4px 16px rgba(0,0,0,0.02);">
+
+                            <!-- 摄像头帧捕获画布（隐藏，始终存在于 DOM） -->
+                            <canvas ref="cameraCanvasEl" style="display:none;"></canvas>
+
+                            <div class="canvas-container" style="display: flex; gap: 16px; padding: 0; margin-top: 6px;">
+                                <!-- 左栏：待检测图片 / 视频 -->
+                                <div class="preview-column source-column" style="flex: 1; min-height: 160px; position: relative; margin-top: 24px;">
+                                    <div class="column-label" style="position: absolute; top: -30px; left: 16px; background: #e67e22; color: white; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 800; z-index: 10;">原始图像
+                                        <span v-if="isBatchMode && batchTotal > 0" style="margin-left: 6px; background: rgba(0,0,0,0.2); padding: 1px 6px; border-radius: 4px;">{{ batchIndex + 1 < batchTotal ? batchIndex + 1 : batchTotal }}/{{ batchTotal }}</span>
+                                    </div>
+                                    
+                                    <!-- 图片识别中：模糊原图底图 + loading 动画叠加 -->
+                                    <template v-if="isDetecting && detectSource === 'image'">
+                                        <div style="position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transform: translateY(-8px);">
+                                            <img :src="selectedFilePreview" style="max-width: 95%; max-height: 95%; object-fit: contain; opacity: 0.55; filter: blur(4px); border-radius: 6px;">
+                                            <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; z-index: 10;">
+                                                <div class="spin" style="width: 44px; height: 44px; border: 4px solid rgba(230,126,34,0.2); border-top: 4px solid #e67e22; border-radius: 50%;"></div>
+                                                <span style="font-size: 14px; color: #e67e22; font-weight: 800; letter-spacing: 2px; text-shadow: 0 0 12px white;">正在智能识别中...</span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <!-- 视频逐帧模式：左侧显示当前识别的原始帧（无检测框） -->
+                                    <template v-else-if="(isVideoStreaming || isVideoStopping) && videoOriginalFrame">
+                                        <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding-bottom: 28px; box-sizing: border-box;">
+                                            <img :src="'data:image/jpeg;base64,' + videoOriginalFrame"
+                                                 style="max-width: 95%; max-height: 95%; object-fit: contain; border-radius: 6px;">
+                                        </div>
+                                    </template>
+                                    <template v-else-if="detectSource === 'video' && selectedFile && !isVideoStreaming && !isVideoStopping">
+                                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; transform: translateY(-8px);">
+                                            <i class="ph ph-video-camera" style="font-size: 48px; color: #e67e22; opacity: 0.7;"></i>
+                                            <span style="font-weight: 700; color: #8d6e63; font-size: 14px;">{{ selectedFile.name }}</span>
+                                            <span style="font-size: 12px; color: #bcaaa4;">&#x70b9;击"开始识别"进入逐帧分析</span>
+                                        </div>
+                                    </template>
+                                    <template v-else-if="selectedFilePreview && selectedFilePreview !== 'video-mock'">
+                                        <img :src="selectedFilePreview" style="max-width: 95%; max-height: 95%; object-fit: contain; transform: translateY(-8px);">
+                                    </template>
+                                    <!-- 摄像头实时预览 -->
+                                    <template v-else-if="detectSource === 'camera' && isCameraOn">
+                                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; transform: translateY(-8px);">
+                                            <video ref="cameraVideoEl" autoplay playsinline muted
+                                                   style="max-width: 95%; max-height: 86%; object-fit: contain; border-radius: 6px;">
+                                            </video>
+                                            <span style="font-size: 11px; color: #a0856a; display:flex; align-items:center; gap:6px;">
+                                                <i class="ph ph-camera"></i>
+                                                {{ cameraDevices.length > 0 && selectedCameraId
+                                                    ? (cameraDevices.find(d => d.deviceId === selectedCameraId)?.label || '摄像头')
+                                                    : '摄像头实时预览' }}
+                                            </span>
+                                        </div>
+                                    </template>
+                                    <!-- 摄像头模式初始占位（未开启摄像头时） -->
+                                    <template v-else-if="detectSource === 'camera' && !isCameraOn">
+                                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;">
+                                            <i class="ph ph-camera" style="font-size: 56px; color: #e67e22; opacity: 0.6;"></i>
+                                            <span style="font-weight: 700; color: #8d6e63; font-size: 15px;">摄像头录像模式</span>
+                                            <span style="font-size: 12px; color: #bcaaa4;">点击下方"打开摄像头"按钮开始预览</span>
+                                        </div>
+                                    </template>
+                                    <div v-else class="column-placeholder">
+                                        <i class="ph ph-image-square" style="font-size: 48px; opacity: 0.5;"></i>
+                                        <span style="margin-top: 10px; font-weight: 600;">请载入需要识别的图片或视频</span>
+                                    </div>
+                                </div>
+
+                                <!-- 右栏：检测结果 / 视频流帧 -->
+                                <div class="preview-column result-column" style="flex: 1; min-height: 160px; position: relative; margin-top: 24px;">
+                                    <div class="column-label" style="position: absolute; top: -30px; left: 16px; background: #27ae60; color: white; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 800; z-index: 10;">识别结果</div>
+
+                                    <!-- 1. 视频流实时帧（处理中）-->
+                                    <template v-if="(isVideoStreaming || isVideoStopping) && videoStreamFrame">
+                                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; padding-bottom: 28px; box-sizing: border-box;">
+                                            <img :src="'data:image/jpeg;base64,' + videoStreamFrame"
+                                                 style="max-width: 95%; max-height: 95%; object-fit: contain; border-radius: 6px;">
+                                            
+                                            <!-- 将进度条内容解耦并使用绝对定位悬浮在底部最边缘，利用 padding-bottom 留出空间防止遮挡图片 -->
+                                            <div style="position: absolute; bottom: 0px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                                <div style="width: 90%; background: #f5e6da; border-radius: 4px; height: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                                                    <div :style="{ width: videoProgress + '%', background: isVideoStopping ? '#e74c3c' : '#e67e22', height: '100%', transition: 'width 0.3s' }"></div>
+                                                </div>
+                                                <span style="font-size: 11px; color: #a0856a;">
+                                                    {{ isVideoStopping ? '正在完成当前帧并保存视频...' : ('识别进度 ' + videoProgress + '%  |  当前帧目标: ' + (detectionStats?.defects?.length || 0) + ' 个') }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- 2. 视频检测完成 -->
+                                    <template v-else-if="isIdentified && videoStreamFrame && detectSource === 'video'">
+                                        <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;">
+                                            <img :src="'data:image/jpeg;base64,' + videoStreamFrame"
+                                                 style="max-width: 95%; max-height: 95%; object-fit: contain; border-radius: 6px;">
+                                        </div>
+                                    </template>
+
+                                    <!-- 3. 摄像头实时检测 -->
+                                    <template v-else-if="isCameraDetecting && cameraResultFrame">
+                                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; transform: translateY(-8px);">
+                                            <img :src="'data:image/jpeg;base64,' + cameraResultFrame"
+                                                 style="max-width: 95%; max-height: 280px; object-fit: contain; border-radius: 6px;">
+                                            <span style="font-size: 11px; color: #27ae60; font-weight: 600; display:flex; align-items:center; gap:6px;">
+                                                <i class="ph ph-lightning-fill"></i>
+                                                实时检测中 &nbsp;|&nbsp; {{ cameraFps }} FPS
+                                                &nbsp;|&nbsp; 当前目标：{{ detectionStats?.defects?.length || 0 }} 个
+                                            </span>
+                                        </div>
+                                    </template>
+
+                                    <!-- 摄像头已开启但就绪 -->
+                                    <template v-else-if="detectSource === 'camera' && isCameraOn && !isCameraDetecting">
+                                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; transform: translateY(-8px);">
+                                            <i class="ph ph-shield" style="font-size: 52px; color: #e67e22; opacity: 0.7;"></i>
+                                            <span style="font-weight: 700; color: #8d6e63; font-size: 15px;">摄像头已就绪</span>
+                                            <span style="font-size: 12px; color: #bcaaa4;">点击"开始识别"启动实时 AI 检测</span>
+                                        </div>
+                                    </template>
+
+                                    <!-- 5. 图片检测结果：SVG 覆盖层方案 (像素级对齐 + 响应式显隐) -->
+                                    <template v-else-if="isIdentified && detectSource === 'image' && selectedFilePreview">
+                                        <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 0; box-sizing: border-box;">
+                                            
+                                            <!-- 【持久化核心】直接显示后端结果图 (High Fidelity Output) -->
+                                            <div 
+                                                :style="{
+                                                    position: 'relative',
+                                                    aspectRatio: (imgNaturalW && imgNaturalH) ? (imgNaturalW + '/' + imgNaturalH) : 'auto',
+                                                    width: (imgNaturalW >= imgNaturalH) ? '95%' : 'auto',
+                                                    height: (imgNaturalW < imgNaturalH) ? '95%' : 'auto',
+                                                    maxWidth: '95%',
+                                                    maxHeight: '95%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    borderRadius: '12px',
+                                                    overflow: 'hidden',
+                                                    boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+                                                    backgroundColor: '#f5f5f5',
+                                                    transform: 'translateY(-8px)'
+                                                }"
+                                            >
+                                                <!-- 直接渲染模型检测完成后的带框图片，确保视觉效果与图二完全一致 -->
+                                                <img
+                                                    v-if="resultImage"
+                                                    :src="resultImage"
+                                                    style="display: block; width: 100%; height: 100%; object-fit: contain;"
+                                                />
+                                                <!-- 加载占位符 -->
+                                                <div v-else class="flex-column flex-center" style="color: #999;">
+                                                    <i class="ph ph-circle-notch animate-spin" style="font-size: 32px;"></i>
+                                                    <span style="font-size: 13px; margin-top: 8px;">加载结果图中...</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- 默认占位图 -->
+                                    <div v-else class="column-placeholder" style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #bcaaa4; transform: translateY(-8px);">
+                                        <i class="ph ph-shield-check" style="font-size: 48px; opacity: 0.5;"></i>
+                                        <span style="margin-top: 10px; font-weight: 600;">{{ selectedFilePreview ? '点击"开始识别"按钮后显示结果' : '检测结果实时显示' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 15px; padding-bottom: 5px;">
+                                <!-- 批量模式按钮组 -->
+                                <template v-if="isBatchMode">
+                                    <!-- IDLE: 第一次点击开始 -->
+                                    <button v-if="batchStatus === 'IDLE'" @click="startBatchDetection"
+                                            style="background: #e67e22; color: white; padding: 12px 60px; border-radius: 50px; font-weight: 800; font-size: 16px; border: none; box-shadow: 0 4px 15px rgba(230,126,34,0.3); cursor: pointer;">
+                                        <i class="ph ph-lightning-fill"></i> 开始识别
+                                    </button>
+                                    <!-- RUNNING: 运行中 —— 暂停按钮 -->
+                                    <button v-else-if="batchStatus === 'RUNNING'" @click="pauseBatchDetection"
+                                            style="background: #f39c12; color: white; padding: 12px 48px; border-radius: 50px; font-weight: 800; font-size: 16px; border: none; box-shadow: 0 4px 12px rgba(243,156,18,0.35); cursor: pointer;">
+                                        <i class="ph ph-pause-fill"></i> 暂停识别
+                                    </button>
+                                    <!-- PAUSED: 已暂停 —— 继续按钮 -->
+                                    <button v-else-if="batchStatus === 'PAUSED'" @click="resumeBatchDetection"
+                                            style="background: #27ae60; color: white; padding: 12px 48px; border-radius: 50px; font-weight: 800; font-size: 16px; border: none; box-shadow: 0 4px 12px rgba(39,174,96,0.35); cursor: pointer;">
+                                        <i class="ph ph-play-fill"></i> 继续识别
+                                    </button>
+                                    <!-- 进度条 -->
+                                    <div v-if="batchStatus === 'RUNNING' || batchStatus === 'PAUSED'" style="width: 100%; padding: 0 60px; box-sizing: border-box;">
+                                        <div style="background: #f5e6da; border-radius: 4px; height: 6px; overflow: hidden; margin-bottom: 4px;">
+                                            <div :style="{ width: (batchTotal > 0 ? (batchIndex / batchTotal * 100) : 0) + '%', background: batchStatus === 'PAUSED' ? '#f39c12' : '#e67e22', height: '100%', transition: 'width 0.3s' }"></div>
+                                        </div>
+                                        <div style="text-align: center; font-size: 11px; color: #a0856a;"
+                                        > {{ batchStatus === 'PAUSED' ? '已暂停 —— ' : '' }}已完成 {{ batchIndex }} / {{ batchTotal }} 张</div>
+                                    </div>
+                                </template>
+
+                                <!-- 非批量模式：图片/视频未开始时的开始识别按钮 -->
+                                <button v-if="!isBatchMode && !isVideoStreaming && !isVideoStopping && detectSource !== 'camera'" @click="startDetection"
+                                        :disabled="isDetecting || !selectedFile"
+                                        style="background: #e67e22; color: white; padding: 10px 60px; border-radius: 50px; font-weight: 800; font-size: 16px; border: none; box-shadow: 0 4px 15px rgba(230,126,34,0.3); cursor: pointer;"
+                                        :style="{ opacity: (isDetecting || !selectedFile) ? 0.6 : 1 }">
+                                    <i :class="isDetecting ? 'ph ph-spinner spin' : 'ph ph-lightning-fill'"></i>
+                                    {{ isDetecting ? '上传中...' : '点击开始识别' }}
+                                </button>
+
+                                <!-- 摄像头检测控制区（全新按钮组） -->
+                                <template v-if="detectSource === 'camera'">
+                                    <!-- 第一行：打开/关闭摄像头按钮 -->
+                                    <button v-if="!isCameraOn" @click="startCamera"
+                                            style="background: #e67e22; color: white; padding: 12px 48px; border-radius: 50px; font-weight: 800; font-size: 15px; border: none; box-shadow: 0 4px 15px rgba(230,126,34,0.3); cursor: pointer;">
+                                        <i class="ph ph-camera"></i> 打开摄像头
+                                    </button>
+                                    <template v-else>
+                                        <!-- 摄像头已开启：显示两个按钮 -->
+                                        <button @click="stopCamera"
+                                                :disabled="isCameraStopping"
+                                                style="background: #7f8c8d; color: white; padding: 12px 32px; border-radius: 50px; font-weight: 800; font-size: 14px; border: none; box-shadow: 0 4px 12px rgba(127,140,141,0.3); cursor: pointer;"
+                                                :style="{ opacity: isCameraStopping ? 0.6 : 1, cursor: isCameraStopping ? 'not-allowed' : 'pointer' }">
+                                            <i class="ph ph-camera-slash"></i> 关闭摄像头
+                                        </button>
+                                        <!-- 开始识别（待命状态） -->
+                                        <button v-if="!isCameraDetecting && !isCameraStopping" @click="startCameraDetection"
+                                                style="background: #e67e22; color: white; padding: 12px 48px; border-radius: 50px; font-weight: 800; font-size: 15px; border: none; box-shadow: 0 4px 15px rgba(230,126,34,0.3); cursor: pointer;">
+                                            <i class="ph ph-lightning-fill"></i> 开始识别
+                                        </button>
+                                        <!-- 停止识别（运行状态） -->
+                                        <button v-else-if="isCameraDetecting && !isCameraStopping" @click="stopCameraDetection(true)"
+                                                style="background: #e74c3c; color: white; padding: 12px 40px; border-radius: 50px; font-weight: 800; font-size: 14px; border: none; box-shadow: 0 4px 12px rgba(231,76,60,0.35); cursor: pointer;">
+                                            <i class="ph ph-stop-fill"></i> 停止识别
+                                        </button>
+                                        <!-- 正在合成视频 -->
+                                        <button v-else-if="isCameraStopping" disabled
+                                                style="background: #95a5a6; color: white; padding: 12px 40px; border-radius: 50px; font-weight: 800; font-size: 14px; border: none; cursor: not-allowed;">
+                                            <i class="ph ph-spinner spin"></i> 正在保存视频...
+                                        </button>
+                                    </template>
+                                </template>
+
+                                <!-- 视频流进行中：暂停 / 停止 -->
+                                <template v-if="isVideoStreaming">
+                                    <button @click="pauseResumeVideo"
+                                            style="background: #f39c12; color: white; padding: 12px 32px; border-radius: 50px; font-weight: 800; font-size: 14px; border: none; box-shadow: 0 4px 12px rgba(243,156,18,0.35); cursor: pointer;">
+                                        <i :class="videoPaused ? 'ph ph-play-fill' : 'ph ph-pause-fill'"></i>
+                                        {{ videoPaused ? '继续识别' : '暂停识别' }}
+                                    </button>
+                                    <button @click="stopVideoDetection"
+                                            style="background: #e74c3c; color: white; padding: 12px 32px; border-radius: 50px; font-weight: 800; font-size: 14px; border: none; box-shadow: 0 4px 12px rgba(231,76,60,0.35); cursor: pointer;">
+                                        <i class="ph ph-stop-fill"></i> 停止识别
+                                    </button>
+                                </template>
+
+                                <!-- 正在停止中（处理最后帧 + 保存视频）-->
+                                <template v-if="isVideoStopping">
+                                    <button disabled
+                                            style="background: #95a5a6; color: white; padding: 12px 40px; border-radius: 50px; font-weight: 800; font-size: 14px; border: none; cursor: not-allowed;">
+                                        <i class="ph ph-spinner spin"></i> 正在生成检测视频...
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- 下部分：识别目标列表 (复刻图中底部表格) -->
+                        <div class="target-list-card" style="background: white; border-radius: 12px; border: 1px solid #f5e6da; overflow: hidden;">
+                            <div class="list-title" style="padding: 15px 25px; background: #fffdfb; border-bottom: 2px solid #fdf6ee; color: #5d4037; font-weight: 800; display: flex; align-items: center; gap: 10px;">
+                                <i class="ph ph-list-bullets" style="color: #e67e22;"></i> 识别目标列表
+                                
+                                <!-- 有行被选中时显示「显示所有」按钮 -->
+                                <button
+                                    v-if="selectedTargetIndex !== -1 && !isVideoStreaming && !isVideoStopping"
+                                    @click="handleRowClick(selectedTargetIndex)"
+                                    style="margin-left: auto; background: #fff3e0; color: #e67e22; border: 1px solid #ffe0b2; padding: 4px 14px; border-radius: 12px; font-size: 12px; font-weight: 700; cursor: pointer;"
+                                >显示所有</button>
+                            </div>
+                            <div class="list-table-container">
+                                <table class="industrial-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-index">No.</th>
+                                            <th class="col-path">文件路径</th>
+                                            <th class="col-type">识别类型</th>
+                                            <th class="col-conf">置信度</th>
+                                            <th class="col-coord">定位坐标 (x1, y1) - (x2, y2)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr v-for="(d, idx) in (detectionStats ? detectionStats.defects : [])" :key="idx" 
+                                            @click="handleRowClick(idx)"
+                                            :style="{ 
+                                                background: selectedTargetIndex === idx ? '#fff4e6' : 'white', 
+                                                cursor: 'pointer', 
+                                                borderLeft: selectedTargetIndex === idx ? '4px solid #e67e22' : 'none',
+                                                transition: 'all 0.2s ease'
+                                            }">
+                                            <td class="col-index" style="font-weight: 800; color: #e67e22;">{{ idx + 1 }}</td>
+                                            <td class="col-path" style="color: #7f8c8d; font-size: 11px;">
+                                                <i class="ph ph-file-image"></i> {{ selectedFile?.name || 'temp_detection_result.jpg' }}
+                                            </td>
+                                            <td class="col-type">
+                                                <span :style="{
+                                                    background: selectedTargetIndex === idx ? '#e67e22' : '#fef5e7',
+                                                    color: selectedTargetIndex === idx ? 'white' : '#d35400',
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '12px',
+                                                    fontWeight: '800'
+                                                }">{{ d.type_cn }}</span>
+                                            </td>
+                                            <td class="col-conf">
+                                                <span style="font-family: 'Courier New', monospace; font-weight: 700;">{{ (d.confidence * 100).toFixed(2) }}%</span>
+                                            </td>
+                                            <td class="col-coord" style="font-family: 'Courier New', monospace; font-size: 11px; color: #5d4037;">
+                                                <i class="ph ph-crosshair"></i> ({{ d.bbox[0].toFixed(0) }}, {{ d.bbox[1].toFixed(0) }}) - ({{ d.bbox[2].toFixed(0) }}, {{ d.bbox[3].toFixed(0) }})
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </template>
+                    
+<!-- 视图 B: 数据分析（暂未实现，保留占位） -->
+                    <template v-else-if="currentView === 'data'">
+                        <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ccc;font-size:14px;">
+                            <i class="ph ph-chart-pie-slice" style="font-size:48px;margin-right:12px;opacity:0.4;"></i>
+                            数据视图开发中
+                        </div>
+                    </template>
+
+                    <!-- ================= 视图 B: 识别历史界面 ================= -->
+                    <template v-else-if="currentView === 'history'">
+                        <div class="history-view-container modern-animate-fade" style="padding: 20px 40px; height: 100%; display: flex; flex-direction: column; align-items: center;">
+                            <div style="width: 100%; max-width: 940px; display: flex; flex-direction: column; background: white; border-radius: 12px; border: 1px solid #f5e6da; box-shadow: 0 4px 15px rgba(0,0,0,0.03); overflow: hidden;">
+
+                                <!-- 标题栏（不随列表滚动） -->
+                                <div style="padding: 16px 24px; border-bottom: 2px solid #fdf6ee; display: flex; justify-content: space-between; align-items: center; background: white; flex-shrink: 0; position: relative; z-index: 20;">
+                                    <h3 style="margin: 0; font-size: 16px; color: #5d4037; font-weight: 800;">
+                                        <i class="ph ph-clock-counter-clockwise" style="color: #e67e22; vertical-align: middle; margin-right: 8px;"></i>
+                                        识别历史记录库
+                                    </h3>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button @click="fetchDetectionHistory(1)" style="border: 1px solid #ffedd5; background: #fffcf8; color: #e67e22; padding: 6px 15px; border-radius: 6px; font-size: 13px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+                                            <i class="ph ph-arrows-clockwise"></i> 同步更新
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- 批量操作悬浮工具栏 (多选时触发) -->
+                                    <transition name="slide-up">
+                                        <div v-if="selectedHistoryIds.length > 0" 
+                                             style="position: absolute; bottom: -50px; left: 0; right: 0; height: 48px; background: rgba(255,255,255,0.96); backdrop-filter: blur(8px); border-bottom: 1px solid #f5e6da; display: flex; align-items: center; padding: 0 24px; justify-content: space-between; box-shadow: 0 4px 12px rgba(0,0,0,0.05); z-index: 10;">
+                                            <div style="display: flex; align-items: center; gap: 12px; font-size: 13px; font-weight: 700; color: #5d4037;">
+                                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                                    <input type="checkbox" :checked="isAllHistorySelected" @change="toggleSelectAllHistory" style="cursor: pointer;">
+                                                    全选
+                                                </label>
+                                                <span style="color: #999; font-weight: 400;">|</span>
+                                                已选择 {{ selectedHistoryIds.length }} 项记录
+                                            </div>
+                                            <div style="display: flex; gap: 16px; align-items: center;">
+                                                <button @click="batchDownloadHistory" 
+                                                        style="background: none; border: none; color: #e67e22; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;"
+                                                        onmouseover="this.style.textDecoration='underline'; this.style.opacity='0.8';" 
+                                                        onmouseout="this.style.textDecoration='none'; this.style.opacity='1';">
+                                                    <i class="ph ph-download-simple"></i> 批量下载
+                                                </button>
+                                                <button @click="confirmBatchDelete" style="background: #fee2e2; border: none; color: #ef4444; font-size: 11px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; transition: all 0.2s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'">
+                                                    <i class="ph ph-trash"></i> 批量删除
+                                                </button>
+                                                <span style="color: #eee; font-weight: 100;">|</span>
+                                                <button @click="selectedHistoryIds = []" 
+                                                        style="background: none; border: none; color: #999; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s;"
+                                                        onmouseover="this.style.color='#e67e22';" 
+                                                        onmouseout="this.style.color='#999';">
+                                                    取消选择
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </transition>
+                                </div>
+
+                                <!-- 副标题行 (带全选勾选框) -->
+                                <div style="padding: 12px 24px 8px 42px; background: #fffdfb; font-size: 12px; color: #bcaaa4; display: flex; align-items: center; gap: 15px; flex-shrink: 0; border-bottom: 1px solid #fdf6ee;">
+                                    <!-- 快捷全选 -->
+                                    <div style="display: flex; align-items: center;">
+                                        <input type="checkbox" :checked="isAllHistorySelected" @change="toggleSelectAllHistory" 
+                                               style="width: 18px; height: 18px; cursor: pointer; border: 1px solid #f5e6da;"
+                                               title="全选/取消全选本页记录">
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <i class="ph ph-list-bullets" style="color: #e67e22;"></i>
+                                        智能识别序列 · 第 {{ historyPage }} / {{ historyTotalPages }} 页，每页 {{ historyPageSize }} 条
+                                    </div>
+                                </div>
+
+                                <!-- 固定高度滚动区域 -->
+                                <div class="history-scroll-inner">
+                                    <div v-for="(item, index) in detectionHistory" :key="item.type === 'single' ? item.data.id : item.batch_id"
+                                         class="history-record-card"
+                                         :class="{ selected: item.type === 'single' ? selectedHistoryIds.includes(item.data.id) : item.children.every(child => selectedHistoryIds.includes(child.id)) }"
+                                         style="position: relative; cursor: default;">
+                                        
+                                        <!-- 批量：文件夹展示 -->
+                                        <template v-if="item.type === 'batch'">
+                                            <!-- 勾选复选框（点击全选/取消全选该批次内所有 ID） -->
+                                            <div @click.stop style="margin-right: 15px; display: flex; align-items: center;">
+                                                <input type="checkbox" :checked="item.children.every(child => selectedHistoryIds.includes(child.id))"
+                                                       @change="(e) => { 
+                                                           if(e.target.checked) {
+                                                               const idsToAdd = item.children.map(c => c.id).filter(id => !selectedHistoryIds.includes(id));
+                                                               selectedHistoryIds.push(...idsToAdd);
+                                                           } else {
+                                                               const idsToRemove = item.children.map(c => c.id);
+                                                               selectedHistoryIds = selectedHistoryIds.filter(id => !idsToRemove.includes(id));
+                                                           }
+                                                       }"
+                                                       style="width: 18px; height: 18px; cursor: pointer;">
+                                            </div>
+
+                                            <!-- 缩略图（当作文件夹） -->
+                                            <div style="width: 82px; height: 52px; border-radius: 6px; overflow: hidden; background: #fdf6ee; flex-shrink: 0; margin-right: 18px; border: 1px solid #f5e6da; display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+                                                <i class="ph ph-folder" style="color:#e67e22;font-size:22px;"></i>
+                                            </div>
+
+                                            <!-- 核心信息 -->
+                                            <div style="flex: 1; min-width: 0;">
+                                                <div style="font-weight: 800; color: #5d4037; font-size: 14px; margin-bottom: 6px;">
+                                                    文件夹批量检测 #{{ index + 1 }}
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888;">
+                                                    <i class="ph ph-images" style="color: #e67e22; font-size: 14px; flex-shrink: 0;"></i>
+                                                    <span>包含照片：</span>
+                                                    <strong style="color: #5d4037; letter-spacing: 0.3px;">{{ item.children.length }}</strong>张
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888;">
+                                                    <i class="ph ph-clock" style="color: #e67e22; font-size: 14px; flex-shrink: 0;"></i>
+                                                    <span>检测时间：</span>
+                                                    <strong style="color: #5d4037; letter-spacing: 0.3px;">{{ formatDate(item.created_at) }}</strong>
+                                                </div>
+                                            </div>
+
+                                            <!-- 操作组 (Desktop 平铺) -->
+                                            <div class="history-actions-desktop" style="display: flex; align-items: center; gap: 16px; margin-left: 12px;">
+                                                <button class="action-view-btn" @click.stop="openBatchCarousel(item)" style="background: none; border: none; color: #e67e22; font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 3px; cursor: pointer;">
+                                                    查看 <i class="ph ph-arrow-square-out" style="font-size: 16px;"></i>
+                                                </button>
+                                                <button title="下载批次ZIP包" @click.stop="downloadBatchHistoryRecord(item)" style="background: none; border: none; color: #888; font-size: 18px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#e67e22'" onmouseout="this.style.color='#888'">
+                                                    <i class="ph ph-download-simple"></i>
+                                                </button>
+                                                <button title="删除批次记录" @click.stop="confirmDeleteHistory(item)" style="background: none; border: none; color: #bbb; font-size: 18px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#bbb'">
+                                                    <i class="ph ph-trash"></i>
+                                                </button>
+                                            </div>
+                                        </template>
+
+                                        <!-- 单张展示 -->
+                                        <template v-else-if="item.type === 'single'">
+                                            <!-- 勾选复选框 -->
+                                            <div @click.stop style="margin-right: 15px; display: flex; align-items: center;">
+                                                <input type="checkbox" :value="item.data.id" v-model="selectedHistoryIds" style="width: 18px; height: 18px; cursor: pointer;">
+                                            </div>
+
+                                            <!-- 缩略图 -->
+                                            <div style="width: 82px; height: 52px; border-radius: 6px; overflow: hidden; background: #f9f9f9; flex-shrink: 0; margin-right: 18px; border: 1px solid #f5e6da;">
+                                                <template v-if="item.data.result_path && item.data.result_path.match(/\.(mp4|avi|mov|webm)$/i)">
+                                                    <div style="width:100%;height:100%;background:#2c3e50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;">
+                                                        <i class="ph ph-film-strip" style="color:#e67e22;font-size:18px;"></i>
+                                                        <span style="color:white;font-size:9px;font-weight:700;">视频</span>
+                                                    </div>
+                                                </template>
+                                                <template v-else>
+                                                    <img :src="item.data.result_path" style="width:100%;height:100%;object-fit:cover;"
+                                                         @error="e => { e.target.style.display='none'; e.target.parentElement.innerHTML='<div style=\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;\'><i class=\'ph ph-image-broken\' style=\'color:#ccc;font-size:22px;\'></i></div>'; }">
+                                                </template>
+                                            </div>
+
+                                            <!-- 核心信息 -->
+                                            <div style="flex: 1; min-width: 0;">
+                                                <div style="font-weight: 800; color: #5d4037; font-size: 14px; margin-bottom: 6px;">
+                                                    识别记录 #{{ String(item.data.id).padStart(4, '0') }}
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888;">
+                                                    <i class="ph ph-clock" style="color: #e67e22; font-size: 14px; flex-shrink: 0;"></i>
+                                                    <span>检测完成时间：</span>
+                                                    <strong style="color: #5d4037; letter-spacing: 0.3px;">{{ formatDate(item.data.detection_time || item.data.created_at) }}</strong>
+                                                </div>
+                                            </div>
+
+                                            <!-- 操作组 (Desktop 平铺) -->
+                                            <div class="history-actions-desktop" style="display: flex; align-items: center; gap: 16px; margin-left: 12px;">
+                                                <button class="action-view-btn" @click.stop="loadHistoryToView(item.data)" style="background: none; border: none; color: #e67e22; font-size: 13px; font-weight: 800; display: flex; align-items: center; gap: 3px; cursor: pointer;">
+                                                    查看 <i class="ph ph-arrow-square-out" style="font-size: 16px;"></i>
+                                                </button>
+                                                <button title="下载结果文件" @click.stop="downloadHistoryRecord(item.data)" style="background: none; border: none; color: #888; font-size: 18px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#e67e22'" onmouseout="this.style.color='#888'">
+                                                    <i class="ph ph-download-simple"></i>
+                                                </button>
+                                                <button title="删除记录" @click.stop="confirmDeleteHistory(item.data)" style="background: none; border: none; color: #bbb; font-size: 18px; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='#e74c3c'" onmouseout="this.style.color='#bbb'">
+                                                    <i class="ph ph-trash"></i>
+                                                </button>
+                                            </div>
+
+                                            <!-- 操作组 (Mobile 更多菜单按钮) -->
+                                            <div class="history-actions-mobile" @click.stop>
+                                                <div class="user-dropdown">
+                                                    <div class="user-dropdown-trigger" style="padding: 10px;">
+                                                        <i class="ph ph-dots-three-vertical" style="font-size: 20px; color: #888;"></i>
+                                                    </div>
+                                                    <div class="user-dropdown-menu" style="bottom: 100%; top: auto; right: 0; padding-bottom: 8px; padding-top: 0;">
+                                                        <div class="user-dropdown-menu-inner" style="min-width: 100px;">
+                                                            <div class="user-dropdown-item" @click="loadHistoryToView(item.data)">
+                                                                <i class="ph ph-eye"></i> 查看
+                                                            </div>
+                                                            <div class="user-dropdown-item" @click="downloadHistoryRecord(item.data)">
+                                                                <i class="ph ph-download-simple"></i> 下载
+                                                            </div>
+                                                            <div class="user-dropdown-divider"></div>
+                                                            <div class="user-dropdown-item danger" @click="confirmDeleteHistory(item.data)">
+                                                                <i class="ph ph-trash"></i> 删除
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+
+                                    <!-- 空状态 -->
+                                    <div v-if="detectionHistory.length === 0" style="text-align: center; padding: 80px 0; color: #ccc;">
+                                        <i class="ph ph-folder-open" style="font-size: 48px; margin-bottom: 14px; opacity: 0.4; display: block;"></i>
+                                        <p style="font-weight: 600; margin: 0;">暂无检测历史记录数据</p>
+                                    </div>
+                                </div>
+
+                                <!-- 分页控件 -->
+                                <div class="history-pagination">
+                                    <button class="page-btn" :disabled="historyPage <= 1" @click="prevHistoryPage">
+                                        <i class="ph ph-caret-left"></i>
+                                    </button>
+                                    <template v-for="p in historyTotalPages" :key="p">
+                                        <button v-if="Math.abs(p - historyPage) <= 2 || p === 1 || p === historyTotalPages"
+                                                class="page-btn" :class="{ active: p === historyPage }" @click="gotoHistoryPage(p)">
+                                            {{ p }}
+                                        </button>
+                                        <span v-else-if="(p === historyPage - 3 && historyPage - 3 > 1) || (p === historyPage + 3 && historyPage + 3 < historyTotalPages)"
+                                              style="color:#ccc;font-size:14px;line-height:32px;padding:0 2px;">…</span>
+                                    </template>
+                                    <button class="page-btn" :disabled="historyPage >= historyTotalPages" @click="nextHistoryPage">
+                                        <i class="ph ph-caret-right"></i>
+                                    </button>
+                                    <span style="font-size: 12px; color: #bbb; margin-left: 6px; white-space: nowrap;">
+                                        第 {{ historyPage }} / {{ historyTotalPages }} 页 · 共 {{ historyTotal }} 条
+                                    </span>
+                                </div>
+
+                            </div>
+                        </div>
+                    </template>
+                </main>
+
+                <!-- ══ 历史记录删除确认弹窗 ══ -->
+                <transition name="fade">
+                    <div v-if="showHistoryDeleteConfirm" class="profile-modal-overlay" @click.self="showHistoryDeleteConfirm = false">
+                        <div class="profile-modal" style="width: 400px; padding: 30px;">
+                            <div class="profile-modal-title" style="color: #e74c3c; margin-bottom: 20px;">
+                                <i class="ph ph-warning-circle"></i> 确认删除记录
+                            </div>
+                            
+                            <template v-if="pendingDeleteRecord">
+                                <!-- 文件夹批次删除确认 -->
+                                <div v-if="pendingDeleteRecord.type === 'batch'" style="display: flex; gap: 15px; background: #fff5f5; padding: 15px; border-radius: 10px; border: 1px solid #fed7d7; margin-bottom: 20px;">
+                                    <div style="width: 70px; height: 50px; border-radius: 4px; overflow: hidden; background: #fdf6ee; flex-shrink: 0; display:flex; align-items:center; justify-content:center;">
+                                        <i class="ph ph-folder" style="color:#e74c3c;font-size:24px;"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 800; color: #5d4037; font-size: 14px;">文件夹批量检测 (共 {{ pendingDeleteRecord.children.length }} 张)</div>
+                                        <div style="font-size: 12px; color: #999; margin-top: 4px;">{{ formatDate(pendingDeleteRecord.created_at) }}</div>
+                                    </div>
+                                </div>
+                                <!-- 单条记录删除确认 -->
+                                <div v-else style="display: flex; gap: 15px; background: #fff5f5; padding: 15px; border-radius: 10px; border: 1px solid #fed7d7; margin-bottom: 20px;">
+                                    <div style="width: 70px; height: 50px; border-radius: 4px; overflow: hidden; background: #eee; flex-shrink: 0;">
+                                        <!-- 如果传入的是 item.data, 或者原本的单条 record -->
+                                        <img :src="pendingDeleteRecord.data ? pendingDeleteRecord.data.result_path : pendingDeleteRecord.result_path" style="width:100%; height:100%; object-fit:cover;">
+                                    </div>
+                                    <div>
+                                        <div style="font-weight: 800; color: #5d4037; font-size: 14px;">识别记录 #{{ String(pendingDeleteRecord.data ? pendingDeleteRecord.data.id : pendingDeleteRecord.id).padStart(4, '0') }}</div>
+                                        <div style="font-size: 12px; color: #999; margin-top: 4px;">{{ formatDate(pendingDeleteRecord.data ? (pendingDeleteRecord.data.detection_time || pendingDeleteRecord.data.created_at) : (pendingDeleteRecord.detection_time || pendingDeleteRecord.created_at)) }}</div>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div v-else-if="selectedHistoryIds.length > 0" style="margin-bottom: 20px; color: #5d4037; font-weight: 700;">
+                                确定要批量删除已选择的 <span style="color:#e74c3c;">{{ selectedHistoryIds.length }}</span> 项记录吗？此操作不可撤销。
+                            </div>
+                            
+                            <div style="font-size: 13px; color: #7f8c8d; margin-bottom: 25px;">删除后，对应的识别图片/视频及数据库记录将永久移除且无法找回。</div>
+                            
+                            <div style="display: flex; gap: 12px;">
+                                <button @click="showHistoryDeleteConfirm = false" style="flex: 1; padding: 12px; border: 1px solid #ddd; background: white; border-radius: 8px; font-weight: 700; cursor: pointer;">取消</button>
+                                <button @click="executeHistoryDelete" style="flex: 1; padding: 12px; border: none; background: #e74c3c; color: white; border-radius: 8px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 12px rgba(231,76,60,0.25);">确认删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- ══ 全局操作成功 Toast ══ -->
+                <transition name="toast-slide">
+                    <div v-if="globalToast.show" style="position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 30000; display: flex; align-items: center; gap: 10px; background: rgba(44,62,80,0.95); backdrop-filter: blur(8px); color: white; padding: 12px 24px; border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); font-size: 14px; font-weight: 700;">
+                        <i v-if="globalToast.type === 'success'" class="ph ph-check-circle" style="color: #2ecc71; font-size: 20px;"></i>
+                        <i v-else class="ph ph-warning" style="color: #f1c40f; font-size: 20px;"></i>
+                        {{ globalToast.message }}
+                    </div>
+                </transition>
+                </main>
+
+                <!-- ══ 模型加载确认弹窗 ══ -->
+                <transition name="fade">
+                    <div v-if="showModelConfirmModal" class="profile-modal-overlay" @click.self="cancelModelUpload">
+                        <div class="profile-modal" style="width: 400px;">
+                            <div class="profile-modal-title">
+                                <i class="ph ph-cpu" style="color:#e67e22;"></i> 加载模型文件
+                            </div>
+                            <button class="profile-modal-close" @click="cancelModelUpload"><i class="ph ph-x"></i></button>
+                            <div style="margin-bottom: 20px; color: #5d4037; font-size: 14px; line-height: 1.7;">
+                                确定要加载模型文件
+                                <strong style="color:#d35400;">"{{ selectedModelFile?.name }}"</strong>
+                                吗？<br>
+                                <span style="color:#999; font-size:12px;">加载过程中将暂时无法进行识别操作。</span>
+                            </div>
+                            <div style="display:flex; gap:12px;">
+                                <button @click="cancelModelUpload"
+                                        style="flex:1; padding:10px; background:#f5f5f5; color:#666; border:1px solid #ddd; border-radius:8px; font-size:14px; cursor:pointer;">
+                                    取消
+                                </button>
+                                <button @click="confirmModelUpload"
+                                        style="flex:1; padding:10px; background:#e67e22; color:white; border:none; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer;">
+                                    确定
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- ══ 模型加载 Loading 全屏遮罩 ══ -->
+                <transition name="fade">
+                    <div v-if="isModelLoading"
+                         style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:20000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;">
+                        <div style="width:56px;height:56px;border:5px solid #f5e6da;border-top-color:#e67e22;border-radius:50%;animation:spin 0.9s linear infinite;"></div>
+                        <div style="color:white;font-size:15px;font-weight:700;">正在加载模型，请稍候...</div>
+                    </div>
+                </transition>
+
+                <!-- ══ 模型加载成功提示弹窗 ══ -->
+                <transition name="fade">
+                    <div v-if="showModelSuccessModal" class="profile-modal-overlay" @click.self="showModelSuccessModal = false">
+                        <div class="profile-modal" style="width: 380px; text-align:center;">
+                            <div style="font-size:48px; color:#2ecc71; margin-bottom:12px;"><i class="ph ph-check-circle"></i></div>
+                            <div style="font-size:15px; font-weight:800; color:#5d4037; margin-bottom:8px;">加载成功</div>
+                            <div style="font-size:13px; color:#7f8c8d; margin-bottom:22px;">{{ modelLoadMessage }}</div>
+                            <button @click="showModelSuccessModal = false"
+                                    style="width:100%;padding:10px;background:#e67e22;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
+                                确定
+                            </button>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- 个人信息弹窗 -->
+                <transition name="fade">
+                    <div v-if="showProfileModal" class="profile-modal-overlay" @click.self="showProfileModal = false">
+                        <div class="profile-modal" style="width: 420px;">
+                            <div class="profile-modal-title" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 15px; margin-bottom: 20px;">
+                                <i class="ph ph-user-gear" style="color:#e67e22; font-size: 20px;"></i> 修改个人信息
+                            </div>
+                            <button class="profile-modal-close" @click="showProfileModal = false"><i class="ph ph-x"></i></button>
+                            
+                            <!-- 头像（点击选择本地图片） -->
+                            <input type="file" ref="profileAvatarInput" accept="image/*" style="display:none" @change="handleAvatarFileChange">
+                            <div class="profile-avatar-wrap">
+                                <div class="profile-avatar-inner" @click="pickAvatarFile" title="点击更换头像">
+                                    <img :src="profileForm.avatarUrl || '/static/assets/default_avatar.png'" alt="avatar">
+                                    <div class="profile-avatar-cam"><i class="ph ph-camera"></i></div>
+                                </div>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="profile-input-group">
+                                    <label>用户名</label>
+                                    <div class="profile-input-wrapper">
+                                        <i class="ph ph-user"></i>
+                                        <input type="text" v-model="profileForm.username" placeholder="用户名">
+                                    </div>
+                                </div>
+                                <div class="profile-input-group">
+                                    <label>手机号码</label>
+                                    <div class="profile-input-wrapper">
+                                        <i class="ph ph-phone"></i>
+                                        <input type="text" v-model="profileForm.phone" placeholder="手机号">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="profile-input-group">
+                                <label>电子邮箱</label>
+                                <div class="profile-input-wrapper">
+                                    <i class="ph ph-envelope"></i>
+                                    <input type="email" v-model="profileForm.email" placeholder="邮箱地址">
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 10px; padding-top: 15px; border-top: 1px dashed #edf2f7;">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div class="profile-input-group">
+                                        <label>新密码</label>
+                                        <div class="profile-input-wrapper">
+                                            <i class="ph ph-lock"></i>
+                                            <input type="password" v-model="profileForm.newPassword" placeholder="留空不修改">
+                                        </div>
+                                    </div>
+                                    <div class="profile-input-group">
+                                        <label>确认密码</label>
+                                        <div class="profile-input-wrapper">
+                                            <i class="ph ph-check-circle"></i>
+                                            <input type="password" v-model="profileForm.confirmNewPassword" placeholder="再次输入">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button class="profile-save-btn" @click="saveProfile" style="margin-top: 20px; height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                <i class="ph ph-floppy-disk"></i> 保存修改
+                            </button>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- ══ 视频保存进度弹窗 ══ -->
+                <transition name="fade">
+                    <div v-if="showSavingModal"
+                         style="position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 9998; display: flex; align-items: center; justify-content: center;">
+                        <div style="background: white; border-radius: 16px; padding: 36px 48px; min-width: 320px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.25);">
+                            <div style="width: 56px; height: 56px; background: linear-gradient(135deg,#3498db,#2980b9); border-radius: 14px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                                <i class="ph ph-floppy-disk" style="font-size: 28px; color: white;"></i>
+                            </div>
+                            <div style="font-size: 16px; font-weight: 800; color: #2c3e50; margin-bottom: 16px;">正在生成检测视频</div>
+                            <!-- 进度条 -->
+                            <div style="background: #ecf0f1; border-radius: 8px; height: 10px; overflow: hidden; margin-bottom: 10px;">
+                                <div :style="{ width: savingProgress + '%', background: 'linear-gradient(90deg,#3498db,#2ecc71)', height: '100%', borderRadius: '8px', transition: 'width 0.15s' }"></div>
+                            </div>
+                            <div style="font-size: 12px; color: #95a5a6;">{{ savingProgress < 100 ? '请勿关闭窗口，正在生成检测视频...' : '视频合成完成！已自动保存并计入历史记录' }}</div>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- 视频回放弹窗（历史记录中的合成检测视频） -->
+                <transition name="fade">
+                    <div v-if="showVideoModal" class="image-modal-overlay" @click="showVideoModal = false"
+                         style="position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 40px; cursor: zoom-out;">
+                        <div style="position: relative; max-width: 90%; max-height: 90%;" @click.stop>
+                            <video :src="modalVideoUrl" controls autoplay
+                                   style="width: auto; height: auto; max-width: 100%; max-height: 85vh; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,0.6);">
+                            </video>
+                            <button @click="showVideoModal = false" style="position: absolute; top: -40px; right: -40px; background: none; border: none; color: white; font-size: 30px; cursor: pointer;">
+                                <i class="ph ph-x-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+                </transition>
+
+
+                <!-- 摄像头识别完成 Toast -->
+                <transition name="fade">
+                    <div v-if="showCameraSuccessToast"
+                         style="position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none;">
+                        <div style="background: #1a5276; color: white; border-radius: 50px; padding: 12px 28px; display: flex; align-items: center; gap: 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.18); font-size: 14px; font-weight: 700; white-space: nowrap;">
+                            <i class="ph ph-video-camera-slash" style="font-size: 20px;"></i>
+                            检测结束，识别视频已保存至历史记录
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- 上传成功 Toast -->
+                <transition name="fade">
+                    <div v-if="showFolderSuccessModal"
+                         style="position: fixed; top: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none;">
+                        <div style="background: #1e8449; color: white; border-radius: 50px; padding: 12px 28px; display: flex; align-items: center; gap: 10px; box-shadow: 0 6px 24px rgba(0,0,0,0.18); font-size: 14px; font-weight: 700; white-space: nowrap;">
+                            <i class="ph ph-check-circle" style="font-size: 20px;"></i>
+                            成功上传 <span style="font-size: 16px; margin: 0 2px;">{{ folderSuccessCount }}</span> 张图片
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- 图片放大查看弹窗 -->
+                <!-- 批次相册轮播 Modal -->
+                <transition name="fade">
+                    <div v-if="showBatchCarouselModal" class="image-modal-overlay" @click="showBatchCarouselModal = false" 
+                         style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 40px; cursor: zoom-out;">
+                        <div class="modal-content" style="position: relative; width: 80%; height: 80%; display: flex; align-items: center; justify-content: center;" @click.stop>
+                            <!-- 左箭头 -->
+                            <button @click="prevBatchSlide" style="position: absolute; left: -60px; top: 50%; transform: translateY(-50%); background: none; border: none; color: white; font-size: 50px; cursor: pointer; opacity: 0.7; transition: 0.3s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">
+                                <i class="ph ph-caret-left"></i>
+                            </button>
+
+                            <img :src="batchCarouselImages[batchCarouselIndex]?.fullPath" style="width: auto; height: auto; max-width: 100%; max-height: 100%; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,0.5);">
+
+                            <!-- 右箭头 -->
+                            <button @click="nextBatchSlide" style="position: absolute; right: -60px; top: 50%; transform: translateY(-50%); background: none; border: none; color: white; font-size: 50px; cursor: pointer; opacity: 0.7; transition: 0.3s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.7">
+                                <i class="ph ph-caret-right"></i>
+                            </button>
+
+                            <button @click="showBatchCarouselModal = false" style="position: absolute; top: -40px; right: -40px; background: none; border: none; color: white; font-size: 30px; cursor: pointer;">
+                                <i class="ph ph-x-circle"></i>
+                            </button>
+
+                            <!-- 底部数字 -->
+                            <div style="position: absolute; bottom: -40px; left: 50%; transform: translateX(-50%); color: white; font-size: 16px; letter-spacing: 2px;">
+                                {{ batchCarouselIndex + 1 }} / {{ batchCarouselImages.length }}
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
+                <transition name="fade">
+                    <div v-if="showImageModal" class="image-modal-overlay" @click="showImageModal = false" 
+                         style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 40px; cursor: zoom-out;">
+                        <div class="modal-content" style="position: relative; max-width: 90%; max-height: 90%;" @click.stop>
+                            <img :src="modalImageUrl" style="width: auto; height: auto; max-width: 100%; max-height: 90vh; border-radius: 8px; box-shadow: 0 0 30px rgba(0,0,0,0.5);">
+                            <button @click="showImageModal = false" style="position: absolute; top: -40px; right: -40px; background: none; border: none; color: white; font-size: 30px; cursor: pointer;">
+                                <i class="ph ph-x-circle"></i>
+                            </button>
+                        </div>
+                    </div>
+                </transition>
+
+                <!-- 3. 右侧面板 (复刻图片卡片堆叠) -->
+                <aside v-if="currentView === 'detection'" class="stats-panel">
+                    <!-- 1. 系统概览卡片 -->
+                    <div class="right-card" style="display: flex; align-items: center; gap: 15px;">
+                        <div style="width: 40px; height: 40px; background: #3498db; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
+                            <i class="ph ph-robot" style="font-size: 24px;"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 800; font-size: 13px;">YOLO 检测系统</div>
+                            <div style="font-size: 11px; color: #999;">钢材表面缺陷实时监测系统</div>
+                        </div>
+                    </div>
+
+                    <!-- 2. 类别统计卡片 -->
+                    <div class="right-card" style="flex: 0.35; display: flex; flex-direction: column;">
+                        <div class="card-title"><i class="ph ph-chart-pie"></i> 类别统计</div>
+                        <div v-if="detectionStats && detectionStats.defects && detectionStats.defects.length > 0" class="category-stats-list">
+                            <!-- 动态渲染当前图片中识别出的缺陷类别和数量 -->
+                            <div v-for="(count, type) in getCategoryDistribution()" :key="type" class="category-stat-item">
+                                <span class="cat-name">{{ type }}</span>
+                                <span class="cat-count">{{ count }}</span>
+                            </div>
+                        </div>
+                        <div v-else style="text-align: center; color: #ccc; font-size: 11px; margin-top: 30px;">暂无识别数据</div>
+                        <!-- 为了保持之前代码的逻辑，保留 pieChart 的 ID 但通常优先用列表展示 -->
+                        <div id="pieChart" style="height: 0; display: none;"></div>
+                    </div>
+
+                    <!-- 3. 类别过滤卡片 -->
+                    <div class="right-card">
+                        <div class="card-title"><i class="ph ph-funnel"></i> 类别过滤</div>
+                        <div class="info-box" style="text-align: center; cursor: pointer;">显示所有类别</div>
+                    </div>
+
+                    <!-- 4. 检测记录卡片 -->
+                    <div class="right-card" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+                        <div class="card-title"><i class="ph ph-list-numbers"></i> 检测记录</div>
+                        
+                        <div>
+                            <div style="font-size: 11px; color: #e67e22; margin-bottom: 4px; font-weight: 600;">检测类别</div>
+                            <div class="info-box" style="font-weight: 700; letter-spacing: 0.5px;">
+                                {{ selectedDefect ? selectedDefect.type_cn : '未选择' }}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div style="font-size: 11px; color: #e67e22; margin-bottom: 4px; font-weight: 600;">置信度</div>
+                            <div class="info-box" style="position: relative; overflow: hidden;">
+                                <div v-if="selectedDefect" :style="{
+                                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                                    width: (selectedDefect.confidence * 100) + '%',
+                                    background: 'linear-gradient(90deg, rgba(230,126,34,0.30), rgba(230,126,34,0.15))',
+                                    borderRadius: '6px', transition: 'width 0.4s ease'
+                                }"></div>
+                                <span style="position: relative; font-weight: 700;">
+                                    {{ selectedDefect ? (selectedDefect.confidence * 100).toFixed(2) + '%' : '--' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style="flex: 1;">
+                            <div style="font-size: 11px; color: #e67e22; margin-bottom: 4px; font-weight: 600;">坐标位置</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                                <div><small style="font-size: 10px; color: #999; font-weight: 600;">X</small> <div class="info-box" style="min-height: 26px; padding: 4px 8px; font-weight: 600; font-family: 'Courier New', monospace;">{{ selectedDefect ? Math.round(selectedDefect.bbox[0]) : '--' }}</div></div>
+                                <div><small style="font-size: 10px; color: #999; font-weight: 600;">Y</small> <div class="info-box" style="min-height: 26px; padding: 4px 8px; font-weight: 600; font-family: 'Courier New', monospace;">{{ selectedDefect ? Math.round(selectedDefect.bbox[1]) : '--' }}</div></div>
+                                <div><small style="font-size: 10px; color: #999; font-weight: 600;">宽</small> <div class="info-box" style="min-height: 26px; padding: 4px 8px; font-weight: 600; font-family: 'Courier New', monospace;">{{ selectedDefect ? Math.round(selectedDefect.bbox[2] - selectedDefect.bbox[0]) : '--' }}</div></div>
+                                <div><small style="font-size: 10px; color: #999; font-weight: 600;">高</small> <div class="info-box" style="min-height: 26px; padding: 4px 8px; font-weight: 600; font-family: 'Courier New', monospace;">{{ selectedDefect ? Math.round(selectedDefect.bbox[3] - selectedDefect.bbox[1]) : '--' }}</div></div>
+                            </div>
+                        </div>
+
+                        <!-- 新增：导出为 Excel 按钮 -->
+                        <div style="margin-top: 15px;">
+                            <button @click="exportToExcel" style="width: 100%; padding: 10px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 6px;">
+                                <i class="ph ph-file-xls" style="font-size: 16px;"></i> 导出完整记录
+                            </button>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </template>
+    </div>
+
+    <script src="/frontend/js/app.js?v=6"></script>
+</body>
+</html>
